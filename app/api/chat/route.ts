@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  checkRateLimit,
+  getClientIp,
+  isAllowedUserMessage,
+} from "../../../lib/chat-protection";
 import { TWIN_SYSTEM_PROMPT } from "../../../lib/twin-context";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -7,6 +12,19 @@ const MODEL = "openai/gpt-oss-120b";
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rate = checkRateLimit(ip);
+  if (!rate.allowed) {
+    const retryAfterSeconds = Math.ceil((rate.retryAfterMs ?? 0) / 1000);
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down and try again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfterSeconds) },
+      },
+    );
+  }
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -37,8 +55,7 @@ export async function POST(request: Request) {
         typeof m === "object" &&
         (m.role === "user" || m.role === "assistant") &&
         typeof m.content === "string" &&
-        m.content.length > 0 &&
-        m.content.length < 12000,
+        isAllowedUserMessage(m.content),
     )
     .slice(-24);
 

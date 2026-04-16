@@ -49,6 +49,17 @@ a {
   text-decoration: none;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 p,
 li,
 span {
@@ -157,6 +168,15 @@ span {
 
 .nav-links a:hover {
   color: var(--text);
+}
+
+.nav-links a:focus-visible,
+.top-cta:focus-visible,
+.button:focus-visible,
+.dt-close:focus-visible,
+.dt-send:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .top-cta {
@@ -1147,4 +1167,13 @@ span {
 .dt-send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
