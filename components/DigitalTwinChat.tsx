@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 type Role = "user" | "assistant";
 
 type Msg = { id: string; role: Role; content: string };
+const STORAGE_KEY = "boona-digital-twin-messages-v1";
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -20,6 +21,9 @@ export function DigitalTwinChat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const lastAssistantMessage = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content;
 
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;
@@ -38,6 +42,34 @@ export function DigitalTwinChat() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Msg[];
+      if (!Array.isArray(parsed)) return;
+      const restored = parsed
+        .filter(
+          (m): m is Msg =>
+            typeof m?.id === "string" &&
+            (m?.role === "user" || m?.role === "assistant") &&
+            typeof m?.content === "string",
+        )
+        .slice(-30);
+      if (restored.length) setMessages(restored);
+    } catch {
+      // Ignore corrupted local storage payload.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
+    } catch {
+      // Ignore storage failures (private mode, quota limits, etc.).
+    }
+  }, [messages]);
 
   async function send() {
     const text = input.trim();
@@ -126,6 +158,9 @@ export function DigitalTwinChat() {
           </header>
 
           <div className="dt-messages" ref={listRef}>
+            <p className="sr-only" aria-live="polite" aria-atomic="true">
+              {lastAssistantMessage ?? ""}
+            </p>
             {messages.length === 0 && !loading && (
               <p className="dt-empty">
                 Hi — I can answer questions about my roles, skills, and
@@ -160,7 +195,12 @@ export function DigitalTwinChat() {
               </div>
             ))}
             {loading && (
-              <div className="dt-bubble dt-bubble--assistant dt-typing">
+              <div
+                className="dt-bubble dt-bubble--assistant dt-typing"
+                role="status"
+                aria-live="polite"
+                aria-label="Digital Twin is typing"
+              >
                 <span />
                 <span />
                 <span />
